@@ -1,0 +1,264 @@
+diff --git openjdk/hotspot/agent/src/os/linux/LinuxDebuggerLocal.c openjdk/hotspot/agent/src/os/linux/LinuxDebuggerLocal.c
+index d6a0c7d..e8b50b6 100644
+--- openjdk/hotspot/agent/src/os/linux/LinuxDebuggerLocal.c
++++ openjdk/hotspot/agent/src/os/linux/LinuxDebuggerLocal.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2002, 2013, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -24,6 +24,7 @@
+ 
+ #include <jni.h>
+ #include "libproc.h"
++#include "libproc_impl.h"
+ 
+ #include <elf.h>
+ #include <sys/types.h>
+diff --git openjdk/hotspot/agent/src/os/linux/libproc_impl.c openjdk/hotspot/agent/src/os/linux/libproc_impl.c
+index 2ea0d0f..a7036e8 100644
+--- openjdk/hotspot/agent/src/os/linux/libproc_impl.c
++++ openjdk/hotspot/agent/src/os/linux/libproc_impl.c
+@@ -26,7 +26,11 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <fcntl.h>
++#ifdef INCLUDE_SA_ATTACH
+ #include <thread_db.h>
++#else
++#include <dirent.h>
++#endif
+ #include "libproc_impl.h"
+ 
+ static const char* alt_root = NULL;
+@@ -109,11 +113,13 @@ bool init_libproc(bool debug) {
+    // init debug mode
+    _libsaproc_debug = debug;
+ 
++#ifdef INCLUDE_SA_ATTACH
+    // initialize the thread_db library
+    if (td_init() != TD_OK) {
+      print_debug("libthread_db's td_init failed\n");
+      return false;
+    }
++#endif
+ 
+    return true;
+ }
+@@ -260,12 +266,14 @@ thread_info* add_thread_info(struct ps_prochandle* ph, pthread_t pthread_id, lwp
+ }
+ 
+ 
++#ifdef INCLUDE_SA_ATTACH
+ // struct used for client data from thread_db callback
+ struct thread_db_client_data {
+    struct ps_prochandle* ph;
+    thread_info_callback callback;
+ };
+ 
++
+ // callback function for libthread_db
+ static int thread_db_callback(const td_thrhandle_t *th_p, void *data) {
+   struct thread_db_client_data* ptr = (struct thread_db_client_data*) data;
+@@ -286,9 +294,11 @@ static int thread_db_callback(const td_thrhandle_t *th_p, void *data) {
+ 
+   return TD_OK;
+ }
++#endif // INCLUDE_SA_ATTACH
+ 
+ // read thread_info using libthread_db
+ bool read_thread_info(struct ps_prochandle* ph, thread_info_callback cb) {
++#ifdef INCLUDE_SA_ATTACH
+   struct thread_db_client_data mydata;
+   td_thragent_t* thread_agent = NULL;
+   if (td_ta_new(ph, &thread_agent) != TD_OK) {
+@@ -309,6 +319,30 @@ bool read_thread_info(struct ps_prochandle* ph, thread_info_callback cb) {
+ 
+   // delete thread agent
+   td_ta_delete(thread_agent);
++#else
++  DIR *dir = NULL;
++  struct dirent *ent = NULL;
++  char taskpath[80];
++  pid_t pid = ph->pid;
++
++  // Find the lwpids to attach to by traversing the /proc/<pid>/task/ directory.
++  snprintf(taskpath, sizeof (taskpath), "/proc/%ld/task", (unsigned long)pid);
++  if ((dir = opendir(taskpath)) != NULL) {
++    while ((ent = readdir(dir)) != NULL) {
++      unsigned long lwp;
++
++      if ((lwp = strtoul(ent->d_name, NULL, 10)) != 0) {
++        // Create and add the thread info.
++        (*cb)(ph, 0, lwp);
++      }
++    }
++  } else {
++    print_debug("Could not open /proc/%ld/task.\n", (unsigned long)pid);
++    return false;
++  }
++
++  closedir(dir);
++#endif
+   return true;
+ }
+ 
+diff --git openjdk/hotspot/agent/src/os/linux/libproc_impl.h openjdk/hotspot/agent/src/os/linux/libproc_impl.h
+index bc907a9..24cc87a 100644
+--- openjdk/hotspot/agent/src/os/linux/libproc_impl.h
++++ openjdk/hotspot/agent/src/os/linux/libproc_impl.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2003, 2013, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2003, 2017, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -126,4 +126,32 @@ thread_info* add_thread_info(struct ps_prochandle* ph, pthread_t pthread_id, lwp
+ // a test for ELF signature without using libelf
+ bool is_elf_file(int fd);
+ 
++// ps_getpid() is only defined on Linux to return a thread's process ID
++pid_t ps_getpid(struct ps_prochandle *ph);
++
++// ps_pglobal_lookup() looks up the symbol sym_name in the symbol table
++// of the load object object_name in the target process identified by ph.
++// It returns the symbol's value as an address in the target process in
++// *sym_addr.
++
++ps_err_e ps_pglobal_lookup(struct ps_prochandle *ph, const char *object_name,
++                    const char *sym_name, psaddr_t *sym_addr);
++// read "size" bytes of data from debuggee at address "addr"
++ps_err_e ps_pdread(struct ps_prochandle *ph, psaddr_t  addr,
++                   void *buf, size_t size);
++
++// write "size" bytes of data to debuggee at address "addr"
++ps_err_e ps_pdwrite(struct ps_prochandle *ph, psaddr_t addr,
++                    const void *buf, size_t size);
++
++ps_err_e ps_lsetfpregs(struct ps_prochandle *ph, lwpid_t lid, const prfpregset_t *fpregs);
++
++ps_err_e ps_lsetregs(struct ps_prochandle *ph, lwpid_t lid, const prgregset_t gregset);
++
++ps_err_e  ps_lgetfpregs(struct  ps_prochandle  *ph,  lwpid_t lid, prfpregset_t *fpregs);
++
++ps_err_e ps_lgetregs(struct ps_prochandle *ph, lwpid_t lid, prgregset_t gregset);
++
++// new libthread_db of NPTL seem to require this symbol
++ps_err_e ps_get_thread_area();
+ #endif //_LIBPROC_IMPL_H_
+diff --git openjdk/hotspot/agent/src/os/linux/proc_service.h openjdk/hotspot/agent/src/os/linux/proc_service.h
+index 802e5b0..9ddb850 100644
+--- openjdk/hotspot/agent/src/os/linux/proc_service.h
++++ openjdk/hotspot/agent/src/os/linux/proc_service.h
+@@ -43,34 +43,4 @@ typedef enum {
+         PS_NOFREGS      /* FPU register set not available for given lwp */
+ } ps_err_e;
+ 
+-// ps_getpid() is only defined on Linux to return a thread's process ID
+-pid_t ps_getpid(struct ps_prochandle *ph);
+-
+-// ps_pglobal_lookup() looks up the symbol sym_name in the symbol table
+-// of the load object object_name in the target process identified by ph.
+-// It returns the symbol's value as an address in the target process in
+-// *sym_addr.
+-
+-ps_err_e ps_pglobal_lookup(struct ps_prochandle *ph, const char *object_name,
+-                    const char *sym_name, psaddr_t *sym_addr);
+-
+-// read "size" bytes of data from debuggee at address "addr"
+-ps_err_e ps_pdread(struct ps_prochandle *ph, psaddr_t  addr,
+-                   void *buf, size_t size);
+-
+-// write "size" bytes of data to debuggee at address "addr"
+-ps_err_e ps_pdwrite(struct ps_prochandle *ph, psaddr_t addr,
+-                    const void *buf, size_t size);
+-
+-ps_err_e ps_lsetfpregs(struct ps_prochandle *ph, lwpid_t lid, const prfpregset_t *fpregs);
+-
+-ps_err_e ps_lsetregs(struct ps_prochandle *ph, lwpid_t lid, const prgregset_t gregset);
+-
+-ps_err_e  ps_lgetfpregs(struct  ps_prochandle  *ph,  lwpid_t lid, prfpregset_t *fpregs);
+-
+-ps_err_e ps_lgetregs(struct ps_prochandle *ph, lwpid_t lid, prgregset_t gregset);
+-
+-// new libthread_db of NPTL seem to require this symbol
+-ps_err_e ps_get_thread_area();
+-
+ #endif /* _PROC_SERVICE_H_ */
+diff --git openjdk/hotspot/agent/src/os/linux/ps_proc.c openjdk/hotspot/agent/src/os/linux/ps_proc.c
+index c10b2fc..b0ec69b 100644
+--- openjdk/hotspot/agent/src/os/linux/ps_proc.c
++++ openjdk/hotspot/agent/src/os/linux/ps_proc.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2003, 2013, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2003, 2017, Oracle and/or its affiliates. All rights reserved.
+  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+  *
+  * This code is free software; you can redistribute it and/or modify it
+@@ -218,9 +218,11 @@ static bool ptrace_waitpid(pid_t pid) {
+ static bool ptrace_attach(pid_t pid, char* err_buf, size_t err_buf_len) {
+   if (ptrace(PTRACE_ATTACH, pid, NULL, NULL) < 0) {
+     char buf[200];
+-    char* msg = strerror_r(errno, buf, sizeof(buf));
+-    snprintf(err_buf, err_buf_len, "ptrace(PTRACE_ATTACH, ..) failed for %d: %s", pid, msg);
+-    print_debug("%s\n", err_buf);
++    if (strerror_r(errno, buf, sizeof(buf) == 0)) {
++      snprintf(err_buf, err_buf_len,
++               "ptrace(PTRACE_ATTACH, ..) failed for %d: %s", pid, buf);
++      print_debug("%s\n", err_buf);
++    }
+     return false;
+   } else {
+     return ptrace_waitpid(pid);
+@@ -417,7 +419,7 @@ struct ps_prochandle* Pgrab(pid_t pid, char* err_buf, size_t err_buf_len) {
+   thr = ph->threads;
+   while (thr) {
+      // don't attach to the main thread again
+-    if (ph->pid != thr->lwp_id && ptrace_attach(thr->lwp_id, err_buf, err_buf_len) != true) {
++    if (pid != thr->lwp_id && ptrace_attach(thr->lwp_id, err_buf, err_buf_len) != true) {
+         // even if one attach fails, we get return NULL
+         Prelease(ph);
+         return NULL;
+diff --git openjdk/hotspot/agent/src/os/linux/Makefile openjdk/hotspot/agent/src/os/linux/Makefile
+index c0b5c86..91c3478 100644
+--- openjdk/hotspot/agent/src/os/linux/Makefile
++++ openjdk/hotspot/agent/src/os/linux/Makefile
+@@ -38,7 +38,7 @@ INCLUDES = -I${JAVA_HOME}/include -I${JAVA_HOME}/include/linux
+ 
+ OBJS     = $(SOURCES:%.c=$(ARCH)/%.o) $(ARCH)/sadis.o
+ 
+-LIBS     = -lthread_db
++LIBS     = 
+ 
+ CFLAGS   = -c -fPIC -g -D_GNU_SOURCE -D$(ARCH) $(INCLUDES) -I$(ARCH)
+ 
+diff --git openjdk/hotspot/agent/src/os/linux/libproc.h openjdk/hotspot/agent/src/os/linux/libproc.h
+index 6b6e41c..81e3c98 100644
+--- openjdk/hotspot/agent/src/os/linux/libproc.h
++++ openjdk/hotspot/agent/src/os/linux/libproc.h
+@@ -28,6 +28,7 @@
+ #include <jni.h>
+ #include <unistd.h>
+ #include <stdint.h>
++#include <sys/procfs.h>
+ #include "proc_service.h"
+ 
+ #ifdef ALT_SASRCDIR
+diff --git openjdk/hotspot/make/linux/makefiles/saproc.make openjdk/hotspot/make/linux/makefiles/saproc.make
+index c1914b5..597a0c3 100644
+--- openjdk/hotspot/make/linux/makefiles/saproc.make
++++ openjdk/hotspot/make/linux/makefiles/saproc.make
+@@ -95,8 +95,7 @@ $(LIBSAPROC): $(SASRCFILES) $(SAMAPFILE)
+ 	           $(SA_LFLAGS)                                         \
+ 	           $(SA_DEBUG_CFLAGS)                                   \
+ 	           $(EXTRA_CFLAGS)                                      \
+-	           -o $@                                                \
+-	           -lthread_db
++	           -o $@
+ ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
+   ifneq ($(STRIP_POLICY),no_strip)
+ 	$(QUIETLY) $(OBJCOPY) --only-keep-debug $@ $(LIBSAPROC_DEBUGINFO)
