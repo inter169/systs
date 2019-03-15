@@ -17,7 +17,8 @@ as you can see the crond would switch the job privilege into the normal user
 privilege, same as the job of the user. so crond process must be running as 
 root.
 
-I coded the fix that let you run crond as the normal user privilege, and it can
+I coded the [fix](https://github.com/inter169/busybox/commit/ccfc894f0c9430ab346c07c98e441efb105fbba5)
+that allowed you to run crond as the normal user privilege, and it can 
 schedule the jobs of the same user **only**, it's very helpful in case of least
 permissions, on docker espically, I would discuss the code fix with the alpine 
 comminity soon.
