@@ -38,7 +38,7 @@ geekidea/alpine-cron:3.9
 ```
 dba:x:1000:1000:Linux User,,,:/home/dba:/bin/ash
 ```
-the crontab file could be located in the default system crontab directory:
+the crontab file could be located in the default system crontab file path:
 ```
 /var/spool/cron/crontabs/dba
 ```
