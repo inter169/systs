@@ -15,7 +15,8 @@ on Alpine Linux the 'crond' daemon service would schedule the jobs for users,
 it was implemented in the busybox ['code base'](https://github.com/mirror/busybox/blob/master/miscutils/crond.c).
 as you can see the crond would call the function ['change_identity'](https://github.com/mirror/busybox/blob/master/miscutils/crond.c#L679) implemented by the syscall **setgroups** (the linux **CAP_SETGID** capability required
 commonly), to switch the job privilege into the normal user / group privilege, 
-same as the job of the user, so crond process must be running as root.
+same as the job of the user, so crond process must be running as root, instead I don't
+get any lucks on the docker option *--cap-add setgid* :-(
 
 I coded the [fix](https://github.com/mirror/busybox/compare/master...inter169:master)
 that allowed you to run crond as the normal user privilege, and it can 
@@ -82,4 +83,19 @@ $ cat > /tmp/crontabs/nobody << EOF
 > * * * * * /tmp/nobody.sh
 > EOF
 $ crond -c /tmp/crontabs
+```
+4. a sample dockerfile by using the patched alpine
+```
+FROM geekidea/alpine-cron:3.9
+
+RUN mkdir /tmp/crontabs \
+    && echo 'SHELL=/bin/sh' > /tmp/crontabs/nobody \
+    && echo '* * * * * /tmp/nobody.sh' >> /tmp/crontabs/nobody \
+    && echo 'echo "$(date) blahblahblah nobody" >> /tmp/nb-cron.log' > /tmp/nobody.sh \
+    && chmod 0755 /tmp/nobody.sh \
+    && chown -R nobody.nobody /tmp/crontabs/nobody
+
+USER nobody
+
+CMD ["crond", "-c", "/tmp/crontabs", "-l", "0", "-d", "0", "-f"]
 ```
