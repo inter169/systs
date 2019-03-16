@@ -12,10 +12,11 @@ commonly.
 
 The related bug was filed as [#381](https://github.com/gliderlabs/docker-alpine/issues/381),
 on Alpine Linux the 'crond' daemon service would schedule the jobs for users, 
-it was implemented in the busybox ['code base'](https://github.com/mirror/busybox/blob/master/miscutils/crond.c).
-as you can see the crond would call the function ['change_identity'](https://github.com/mirror/busybox/blob/master/miscutils/crond.c#L679) implemented by the syscall **setgroups** (the linux **CAP_SETGID** capability required
+it was implemented in the busybox code base, as you can see the crond would call the 
+function ['change_identity'](https://github.com/mirror/busybox/blob/master/miscutils/crond.c#L679)
+implemented by the syscall **setgroups** (the linux **CAP_SETGID** capability required
 commonly), to switch the job privilege into the normal user / group privilege, 
-same as the job of the user, so crond process must be running as root, instead I don't
+same as the job of the user, so crond process must be running as root, instead I didn't
 get any lucks on the docker option *--cap-add setgid* :-(
 
 I coded the [fix](https://github.com/mirror/busybox/compare/master...inter169:master)
