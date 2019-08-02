@@ -13,7 +13,7 @@
 # 
 # NOTE
 # the patched musl library 'ld-musl-x86_64.so.1' was based on the musl
-# package of version '1.1.20-r3' dedicated for Alpine Linux 3.9.
+# package of version '1.1.20-r4' dedicated for Alpine Linux 3.9.
 
 FROM alpine:3.9
 MAINTAINER harper.wang <geekidea@gmail.com>
