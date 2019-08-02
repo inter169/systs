@@ -35,9 +35,14 @@ For Alpine Linux 3.7 we should patch the fixes in this git repo directory
 to the musl [1.1.18-r3](https://pkgs.alpinelinux.org/package/v3.7/main/x86_64/musl) codes,
 and the aports for building apk package can be found [here](https://git.alpinelinux.org/cgit/aports/snapshot/aports-944a45f26d02bb803737af70cf5f012194796146.tar.bz2).
 
-on Alpine Linux 3.8 the dedicated version of musl is [1.1.19-r10](https://pkgs.alpinelinux.org/package/v3.8/main/x86_64/musl), and the [aports](https://git.alpinelinux.org/cgit/aports/snapshot/aports-ed42835662421a72dbc1c47397a2805306203860.tar.bz2).
+on Alpine Linux 3.8 the dedicated version of musl is [1.1.19-r10](https://pkgs.alpinelinux.org/package/v3.8/main/x86_64/musl), and the
+[aports](https://git.alpinelinux.org/cgit/aports/snapshot/aports-ed42835662421a72dbc1c47397a2805306203860.tar.bz2).
 
-on Alpine Linux 3.9 the dedicated version of musl is [1.1.20-r3](https://pkgs.alpinelinux.org/package/v3.9/main/x86_64/musl), and the [aports](https://git.alpinelinux.org/aports/snapshot/aports-7b32fee49798e36cb5a7dfde30183f9717472cf6.tar.bz2).
+on Alpine Linux 3.9 the dedicated version of musl is [1.1.20-r3](https://pkgs.alpinelinux.org/package/v3.9/main/x86_64/musl), and the
+[aports](https://git.alpinelinux.org/aports/snapshot/aports-7b32fee49798e36cb5a7dfde30183f9717472cf6.tar.bz2).
+
+on Alpine Linux 3.10 the dedicated version of musl is [1.1.22-r2](https://pkgs.alpinelinux.org/package/v3.10/main/x86_64/musl), and the
+[aports](https://git.alpinelinux.org/aports/snapshot/aports-75ea66af0b47701602c6884311b40d603b8ca5c2.tar.bz2).
 
 The so binarires compiled with the fix were also placed in the sub-directories
 for different versions of Alpine Linux.
@@ -49,6 +54,7 @@ and you can use the following docker versions tags:
 docker pull geekidea/alpine-a:3.7
 docker pull geekidea/alpine-a:3.8
 docker pull geekidea/alpine-a:3.9
+docker pull geekidea/alpine-a:3.10
 ```
 ### Note
 I coded the fix based on musl 1.1.18-r3 for Alpine Linux 3.7, and musl 1.1.19-r10 
