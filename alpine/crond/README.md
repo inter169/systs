@@ -31,6 +31,7 @@ currently I pushed the patched alpine docker with the fix onto the
 geekidea/alpine-cron:3.7
 geekidea/alpine-cron:3.8
 geekidea/alpine-cron:3.9
+geekidea/alpine-cron:3.10
 ```
 ---
 
@@ -87,7 +88,7 @@ $ crond -c /tmp/crontabs
 ```
 4. a sample dockerfile by using the patched alpine
 ```
-FROM geekidea/alpine-cron:3.9
+FROM geekidea/alpine-cron:3.10
 
 RUN mkdir /tmp/crontabs \
     && echo 'SHELL=/bin/sh' > /tmp/crontabs/nobody \
