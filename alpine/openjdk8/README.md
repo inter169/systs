@@ -30,11 +30,11 @@ Usage:
 There was an openjdk project named [Portola](https://openjdk.java.net/projects/portola/),
 and the goal is to provide a port of the JDK to the Alpine Linux, also the 
 developers had coded the [fixes](http://cr.openjdk.java.net/~jgeorge/8178784/webrev.01/hotspot.patch) 
-by iterating '/proc/<pid>/task' instead of thread_db API's to fetch jvm threads' id,
+by iterating `/proc/<pid>/task` instead of thread_db API's to fetch jvm threads' id,
 and such issues & fixes had been discussed by openjdk dev team ([for more](https://bugs.openjdk.java.net/issues/?jql=project+%3D+JDK+AND+fixVersion+%3D+repo-portola)).
 
 We should follow the process of building alpine apk to build the new openjdk 
-with the code fixes on Alpine Linux, further more, convert the code fixes into
+with the code fixes on Alpine Linux, further more, converted the code fixes into
 apk patch, and did a few codes fixes as the compile error about the definition 
 of 'lwpid_t'.
 
