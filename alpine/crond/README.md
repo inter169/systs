@@ -17,7 +17,7 @@ function ['change_identity'](https://github.com/mirror/busybox/blob/master/miscu
 implemented by the syscall **setgroups** (the linux **CAP_SETGID** capability required
 commonly), to switch the job privilege into the normal user / group privilege, 
 same as the job of the user, so crond process must be running as root, instead I didn't
-get any lucks on the docker option *--cap-add setgid* :-(
+get any lucks from the docker option `--cap-add setgid` :-(
 
 I coded the [fix](https://github.com/mirror/busybox/compare/master...inter169:master)
 that allowed you to run crond as the normal user privilege, and it can 
