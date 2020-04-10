@@ -16,8 +16,21 @@ it was implemented in the busybox code base, as you can see the crond would call
 function ['change_identity'](https://github.com/mirror/busybox/blob/master/miscutils/crond.c#L679)
 implemented by the syscall **setgroups** (the linux **CAP_SETGID** capability required
 commonly), to switch the job privilege into the normal user / group privilege, 
-same as the job of the user, so crond process must be running as root, instead I didn't
-get any lucks from the docker option `--cap-add setgid` :-(
+same as the job of the user, so crond process must be running as root.
+
+As an alternative we can set the capability bit CAP_SETGID on crond by using **setcap**, 
+but on alpine linux crond is a symbolic link of **busybox**, and setcap failed with the link,
+so we should set CAP_SETGID on busybox like the dockerfile instructions below:
+```
+# install cap package and set the capabilities on busybox
+RUN apk add --update --no-cache libcap && \
+    setcap cap_setgid=ep /bin/busybox
+```
+in this workaround we set the CAP_SETGID bit on busybox slightly, but be aware of that
+busybox is implemented as the unix like utilities in a single file, it contains a lot 
+of utility features, e.g. chown, adduser, etc. obviously such features (inside busybox)
+also have the capabilites to run successfully, so we could make the broader attack
+surface by accident.
 
 I coded the [fix](https://github.com/mirror/busybox/compare/master...inter169:master)
 that allowed you to run crond as the normal user privilege, and it can 
